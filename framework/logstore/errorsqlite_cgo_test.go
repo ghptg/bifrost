@@ -1,4 +1,8 @@
-//go:build cgo
+//go:build ignore
+
+// Retired with the switch to the pure-Go SQLite driver: these cases build mattn
+// (cgo) error values, which isSQLiteTransientError no longer inspects. The
+// replacement is errorsqlite_test.go.
 
 package logstore
 

@@ -1,11 +1,15 @@
-//go:build cgo
-
 package logstore
 
 import (
 	"errors"
 
-	"github.com/mattn/go-sqlite3"
+	sqlite "github.com/glebarez/go-sqlite"
+)
+
+// SQLite primary result codes (https://www.sqlite.org/rescode.html).
+const (
+	sqliteResultBusy   = 5
+	sqliteResultLocked = 6
 )
 
 // isSQLiteTransientError reports whether err is SQLITE_BUSY or SQLITE_LOCKED
@@ -15,19 +19,11 @@ import (
 // Falling back to per-row inserts instead makes every row wait out the
 // connection's busy_timeout again.
 func isSQLiteTransientError(err error) bool {
-	var sqliteErr sqlite3.Error
+	var sqliteErr *sqlite.Error
 	if errors.As(err, &sqliteErr) {
-		return sqliteErr.Code == sqlite3.ErrBusy || sqliteErr.Code == sqlite3.ErrLocked
-	}
-	var code sqlite3.ErrNo
-	if errors.As(err, &code) {
-		return code == sqlite3.ErrBusy || code == sqlite3.ErrLocked
-	}
-	// An extended code carries its primary code in the low byte (ErrNo.Extend).
-	var extended sqlite3.ErrNoExtended
-	if errors.As(err, &extended) {
-		base := sqlite3.ErrNo(int(extended) & 0xff)
-		return base == sqlite3.ErrBusy || base == sqlite3.ErrLocked
+		// An extended code carries its primary code in the low byte.
+		base := sqliteErr.Code() & 0xff
+		return base == sqliteResultBusy || base == sqliteResultLocked
 	}
 	return false
 }
