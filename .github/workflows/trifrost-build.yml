@@ -1,0 +1,37 @@
+name: trifrost-build
+
+on:
+  push:
+    branches: ["trifrost/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: framework
+    strategy:
+      fail-fast: false
+      matrix:
+        tags: ["", "lite"]
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.3"
+      - name: Build framework (${{ matrix.tags || 'default' }})
+        run: go build -tags "${{ matrix.tags }}" ./...
+      - name: Vet framework
+        run: go vet ./logstore ./objectstore ./configstore
+      - name: SQLite tests
+        if: matrix.tags == ''
+        run: go test ./logstore -run 'SQLite' -count=1
+      - name: Build gateway binary
+        working-directory: transports/bifrost-http
+        run: go build -tags "${{ matrix.tags }}" -trimpath -ldflags="-w -s" -o "$RUNNER_TEMP/bifrost-http" .
